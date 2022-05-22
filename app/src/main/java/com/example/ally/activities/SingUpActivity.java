@@ -4,6 +4,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
@@ -14,6 +15,7 @@ import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Base64;
 
+import android.util.Log;
 import android.util.Patterns;
 import android.view.View;
 import android.widget.AdapterView;
@@ -26,6 +28,11 @@ import com.example.ally.databinding.ActivitySingUpBinding;
 import com.example.ally.utilities.Constants;
 import com.example.ally.utilities.PreferenceManager;
 
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.AuthResult;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.io.ByteArrayOutputStream;
@@ -88,7 +95,7 @@ public class SingUpActivity extends AppCompatActivity implements AdapterView.OnI
 
 
         loading(true);
-        FirebaseFirestore database = FirebaseFirestore.getInstance();
+       FirebaseAuth database = FirebaseAuth.getInstance();
         HashMap<String, Object> user =new HashMap<>();
         user.put(Constants.KEY_NAME,binding.inputName.getText().toString());
         user.put(Constants.KEY_SELECT_TYPE,binding.spinner.getSelectedItem().toString());
@@ -96,27 +103,36 @@ public class SingUpActivity extends AppCompatActivity implements AdapterView.OnI
         user.put(Constants.KEY_EMAIL, binding.inputEmail.getText().toString());
         user.put(Constants.KEY_PASSWORD, binding.inputPassword.getText().toString());
         user.put(Constants.KEY_IMAGE, encodedImage);
-        database.collection(Constants.KEY_COLLECTION_USERS)
-                .add(user)
-                .addOnSuccessListener(documentReference -> {
-                    loading(  false);
-                    preferenceManager.putBoolean(Constants.KEY_IS_SIGNED_IN, true);
-                    preferenceManager.putString(Constants.KEY_USER_ID, documentReference.getId());
-                    preferenceManager.putString(Constants.KEY_NAME, binding.inputName.getText().toString());
-                    preferenceManager.putString(Constants.KEY_IMAGE, encodedImage);
-                    Intent intent=new Intent(getApplicationContext(), MainActivity.class);
-                    intent.addFlags(Intent. FLAG_ACTIVITY_NEW_TASK|Intent. FLAG_ACTIVITY_CLEAR_TASK);
-                    startActivity(intent);
+        String email = binding.inputEmail.getText().toString();
+        String password = binding.inputPassword.getText().toString();
+        Log.i("tag: before create", "starting create user");
+        database.createUserWithEmailAndPassword(email, password)
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        if (task.isSuccessful()) {
+                            // Sign in success, update UI with the signed-in user's information
+                            // Log.d(TAG, "createUserWithEmail:success");
+                            FirebaseUser user = database.getCurrentUser();
+                            user.sendEmailVerification();
+                            updateUI(user);
+                            Log.i("tag: after create", "user created successfully");
+                            uploadData();
 
 
-                })
-                .addOnFailureListener(exception ->{
-                    loading(  false);
-                    showToast(exception.getMessage());
 
+                        } else {
+                            updateUI(null);
+                            Log.e("after create", "createUserWithEmail:failure", task.getException());
+                        }
+                    }
                 });
 
     }
+
+    private void updateUI(FirebaseUser user) {
+    }
+
     private String encodeImage(Bitmap bitmap){
         int previewWidth =150;
         int previewHeight =bitmap.getHeight() * previewWidth / bitmap.getWidth();
@@ -149,12 +165,12 @@ public class SingUpActivity extends AppCompatActivity implements AdapterView.OnI
 
 
     private Boolean isValidSignUpDetails() {
-
+        Log.i("tag: validating", "starting validation");
         if (encodedImage == null){
             showToast("Select profile image");
             return false;
         }
-            else  if (binding.inputName.getText().toString().trim().isEmpty()) {
+        else if (binding.inputName.getText().toString().trim().isEmpty()) {
             showToast("enter name");
             return false;
         } else if (binding.inputCollageId.getText().toString().trim().isEmpty()) {
@@ -163,8 +179,8 @@ public class SingUpActivity extends AppCompatActivity implements AdapterView.OnI
         } else if (binding.inputEmail.getText().toString().trim().isEmpty()) {
             showToast("Enter email");
             return false;
-        } else if (!Patterns.EMAIL_ADDRESS.matcher(binding.inputEmail.getText().toString()).matches() || !binding.inputEmail.getText().toString().endsWith("@shiats.edu.in"))  {
-            showToast("enter valid email");
+       } else if (!Patterns.EMAIL_ADDRESS.matcher(binding.inputEmail.getText().toString()).matches() || !binding.inputEmail.getText().toString().endsWith("@shiats.edu.in"))  {
+            showToast("enter valid email ");
             return false;
 
 
@@ -179,6 +195,7 @@ public class SingUpActivity extends AppCompatActivity implements AdapterView.OnI
             showToast("password & confirm password must be same");
             return false;
         }else {
+              Log.i("tag: validating", "validated successfully");
         return true;
         }
 
@@ -191,5 +208,42 @@ public class SingUpActivity extends AppCompatActivity implements AdapterView.OnI
             binding.progressBar.setVisibility(View.INVISIBLE);
             binding.buttonSignUp.setVisibility(View.VISIBLE);
         }
+    }
+    private void uploadData(){
+
+        loading(true);
+        FirebaseFirestore database = FirebaseFirestore.getInstance();
+        HashMap<String, Object> user =new HashMap<>();
+        user.put(Constants.KEY_NAME,binding.inputName.getText().toString());
+        user.put(Constants.KEY_SELECT_TYPE,binding.spinner.getSelectedItem().toString());
+        user.put(Constants.KEY_COLLAGE_ID,binding.inputCollageId.getText().toString());
+        user.put(Constants.KEY_EMAIL, binding.inputEmail.getText().toString());
+        user.put(Constants.KEY_PASSWORD, binding.inputPassword.getText().toString());
+        user.put(Constants.KEY_IMAGE, encodedImage);
+        database.collection(Constants.KEY_COLLECTION_USERS)
+                .add(user)
+                .addOnSuccessListener(documentReference -> {
+                    FirebaseAuth database1 = FirebaseAuth.getInstance();
+                    FirebaseUser user1 = database1.getCurrentUser();
+                    if(user1.isEmailVerified()){
+                        loading(  false);
+                        preferenceManager.putBoolean(Constants.KEY_IS_SIGNED_IN, true);
+                        preferenceManager.putString(Constants.KEY_USER_ID, documentReference.getId());
+                        preferenceManager.putString(Constants.KEY_NAME, binding.inputName.getText().toString());
+                        preferenceManager.putString(Constants.KEY_IMAGE, encodedImage);
+                        Intent intent=new Intent(getApplicationContext(), MainActivity.class);
+                        intent.addFlags(Intent. FLAG_ACTIVITY_NEW_TASK|Intent. FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                    }
+
+
+
+                })
+                .addOnFailureListener(exception ->{
+                    loading(  false);
+                    showToast(exception.getMessage());
+
+                });
+
     }
 }
