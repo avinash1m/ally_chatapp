@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">Ally</string>
+    <string name="welcome_back">Welcome Back!</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="sign_in">Sign In</string>
+    <string name="create_new_account">Create New Account</string>
+    <string name="add_image">Add Image</string>
+    <string name="name">Name</string>
+    <string name="collage_id">Collage Id</string>
+    <string name="confirm_password">Confirm Password</string>
+    <string name="sing_up">Sing up</string>
+    <string name="select_user">Select User</string>
+    <string name="type_a_message">Type a message</string>
+    <string name="online">Online</string>
+    <string name="select_type">Select Type</string>
+
+
+</resources>
